@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface NavbarProps {
   onOpenForm: () => void;
@@ -45,7 +46,7 @@ const Navbar = ({ onOpenForm }: NavbarProps) => {
         </a>
 
         {/* Desktop */}
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {links.map((l) => (
             <a
               key={l.href}
@@ -55,9 +56,18 @@ const Navbar = ({ onOpenForm }: NavbarProps) => {
               {l.label}
             </a>
           ))}
-          <Button variant="hero" size="default" onClick={onOpenForm}>
-            Get My Free Report
-          </Button>
+          <div className="flex items-center gap-3 pl-6 border-l border-white/10">
+            <Link to="/login">
+              <Button variant="ghost" size="default" className="text-hero-foreground hover:text-hero-foreground/80">
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/signup">
+              <Button variant="hero" size="default">
+                Sign Up
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Mobile toggle */}
@@ -73,7 +83,7 @@ const Navbar = ({ onOpenForm }: NavbarProps) => {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden backdrop-blur-xl bg-hero/95 border-t border-white/10 animate-fade-in">
-          <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
+          <div className="container mx-auto px-4 py-4 flex flex-col gap-3">
             {links.map((l) => (
               <a
                 key={l.href}
@@ -84,9 +94,18 @@ const Navbar = ({ onOpenForm }: NavbarProps) => {
                 {l.label}
               </a>
             ))}
-            <Button variant="hero" size="lg" onClick={() => { setMobileOpen(false); onOpenForm(); }}>
-              Get My Free Report
-            </Button>
+            <div className="pt-4 border-t border-white/10 flex gap-2">
+              <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
+                <Button variant="outline" size="lg" className="w-full text-hero-foreground border-white/10 hover:bg-white/5">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/signup" className="flex-1" onClick={() => setMobileOpen(false)}>
+                <Button variant="hero" size="lg" className="w-full">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}

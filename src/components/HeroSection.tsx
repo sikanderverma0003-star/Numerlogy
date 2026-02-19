@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface HeroSectionProps {
   onOpenForm: () => void;
@@ -50,10 +51,17 @@ const HeroSection = ({ onOpenForm }: HeroSectionProps) => {
             opportunities — calculated instantly from your birth details.
           </p>
 
-          <div className="animate-fade-up" style={{ animationDelay: '0.3s' }}>
+          <div className="animate-fade-up space-y-4" style={{ animationDelay: '0.3s' }}>
             <Button variant="hero" size="xl" onClick={onOpenForm}>
               Get My Free Report
             </Button>
+            <p className="text-hero-foreground/50 text-sm">
+              or{" "}
+              <Link to="/signup" className="text-primary hover:text-primary/80 font-semibold transition-colors">
+                create an account
+              </Link>
+              {" "}to save your results
+            </p>
           </div>
 
           {/* Trust badges */}
