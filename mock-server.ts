@@ -32,16 +32,18 @@ app.post('/api/auth/signup', (req, res) => {
     return res.status(400).json({ success: false, error: 'Email already exists' });
   }
 
-  mockUsers[email] = { email, password, name: name || 'User' };
+  const id = 'user-' + mockUserId++;
+  mockUsers[email] = { id, email, password, name: name || email.split('@')[0] };
   mockReports[email] = [];
-  
-  res.status(201).json({ 
-    success: true, 
-    message: 'Signup successful',
+
+  const token = 'mock-token-' + Date.now();
+  mockTokenToEmail[token] = email;
+  res.status(201).json({
+    message: 'User created successfully',
     data: {
-      user: { email, name: name || 'User' },
-      token: 'mock-token-' + Date.now()
-    }
+      token,
+      user: { _id: id, email, name: mockUsers[email].name, plan: 'free' },
+    },
   });
 });
 
@@ -59,13 +61,14 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ success: false, error: 'Invalid email or password' });
   }
 
-  res.status(200).json({ 
-    success: true, 
+  const token = 'mock-token-' + Date.now();
+  mockTokenToEmail[token] = email;
+  res.status(200).json({
     message: 'Login successful',
     data: {
-      user: { email, name: user.name },
-      token: 'mock-token-' + Date.now()
-    }
+      token,
+      user: { _id: user.id, email: user.email, name: user.name, plan: 'free' },
+    },
   });
 });
 
@@ -83,137 +86,159 @@ app.post('/api/auth/forgot-password', (req, res) => {
   });
 });
 
-// Mock dashboard stats
+// Mock dashboard stats (use token to get current user name)
 app.get('/api/dashboard/stats', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  const user = email ? mockUsers[email] : null;
+  const reportCount = email && mockReports[email] ? mockReports[email].length : 0;
   res.status(200).json({
     success: true,
     data: {
-      totalReports: 5,
+      totalReports: reportCount,
       planType: 'free',
-      usedQueries: 3,
+      usedQueries: reportCount,
       queryLimit: 10,
-      remainingUsage: 7,
-      userName: 'John Doe'
-    }
+      remainingUsage: Math.max(0, 10 - reportCount),
+      userName: user?.name || 'User',
+    },
   });
 });
 
-// Mock get history
+// Mock get history (per-user reports)
 app.get('/api/dashboard/history', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  const reports = email && mockReports[email] ? mockReports[email] : [];
+
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
-  
-  const mockHistoryData = [
-    {
-      _id: '1',
-      userId: 'user1',
-      type: 'numerology',
-      inputData: { fullName: 'John Doe', dateOfBirth: '1990-01-15' },
-      result: { 
-        lifePathNumber: 7, 
-        description: 'Life Path Number 7 represents seekers of knowledge' 
-      },
-      createdAt: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      _id: '2',
-      userId: 'user1',
-      type: 'numerology',
-      inputData: { fullName: 'Jane Doe', dateOfBirth: '1995-05-20' },
-      result: { 
-        lifePathNumber: 5, 
-        description: 'Life Path Number 5 represents freedom and adventure' 
-      },
-      createdAt: new Date(Date.now() - 172800000).toISOString()
-    }
-  ];
+  const total = reports.length;
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const start = (page - 1) * limit;
+  const pageData = reports.slice(start, start + limit);
 
   res.status(200).json({
     success: true,
-    data: mockHistoryData,
+    data: pageData,
     pagination: {
-      total: 2,
-      pages: 1,
-      current: page
-    }
+      page,
+      limit,
+      total,
+      pages,
+    },
   });
 });
 
-// Mock delete report
+// Mock delete report (remove from current user's list)
 app.delete('/api/dashboard/history/:reportId', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  if (email && mockReports[email]) {
+    mockReports[email] = mockReports[email].filter((r: any) => r._id !== req.params.reportId);
+  }
   res.status(200).json({
     success: true,
-    message: 'Report deleted successfully'
+    message: 'Report deleted successfully',
   });
 });
 
-// Mock get profile
+// Mock get profile (from token)
 app.get('/api/dashboard/profile', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  const user = email ? mockUsers[email] : null;
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  const reportCount = mockReports[email]?.length ?? 0;
   res.status(200).json({
     success: true,
     data: {
-      _id: 'user1',
-      email: 'user@example.com',
-      name: 'John Doe',
+      _id: user.id,
+      email: user.email,
+      name: user.name,
       plan: 'free',
-      used_queries: 3,
-      query_limit: 10
-    }
+      used_queries: reportCount,
+      query_limit: 10,
+    },
   });
 });
 
 // Mock update profile
 app.put('/api/dashboard/profile', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  const user = email ? mockUsers[email] : null;
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
   const { name } = req.body;
-  
+  if (name && typeof name === 'string') user.name = name.trim();
+  const reportCount = mockReports[email]?.length ?? 0;
   res.status(200).json({
     success: true,
+    message: 'Profile updated successfully',
     data: {
-      _id: 'user1',
-      email: 'user@example.com',
-      name: name || 'John Doe',
+      _id: user.id,
+      email: user.email,
+      name: user.name,
       plan: 'free',
-      used_queries: 3,
-      query_limit: 10
-    }
+      used_queries: reportCount,
+      query_limit: 10,
+    },
   });
 });
 
-// Mock tool calculation / generate report
+// Mock tool calculation / generate report (stores per user)
 app.post('/api/tool/generate', (req, res) => {
-  const { inputData, type } = req.body;
-  
-  if (!inputData || !inputData.fullName || !inputData.dateOfBirth) {
-    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
+  const email = token ? mockTokenToEmail[token] : null;
+  if (!email || !mockUsers[email]) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
-  // Generate random life path number (1-9)
+  const { inputData, type } = req.body;
+
+  if (!inputData || !inputData.fullName || !inputData.dateOfBirth) {
+    return res.status(400).json({ success: false, error: 'Full name and date of birth are required' });
+  }
+
   const lifePathNumber = Math.floor(Math.random() * 9) + 1;
   const luckyColors = ['Purple', 'Gold', 'Blue', 'Green', 'Red', 'Yellow', 'Orange', 'Pink', 'Silver'];
   const luckyNumber = Math.floor(Math.random() * 9) + 1;
-  
+
   const report = {
     _id: 'report-' + Date.now(),
-    userId: 'user1',
+    userId: mockUsers[email].id,
     type: type || 'numerology',
-    inputData: inputData,
+    inputData,
     result: {
-      lifePathNumber: lifePathNumber,
+      lifePathNumber,
       luckyColor: luckyColors[lifePathNumber - 1],
-      luckyNumber: luckyNumber,
+      luckyNumber,
       description: `Life Path Number ${lifePathNumber} represents unique qualities and potential.`,
       strengths: ['Intuitive', 'Analytical', 'Creative', 'Determined'],
       challenges: ['Overthinking', 'Social anxiety'],
       compatibleNumbers: [(lifePathNumber % 9) + 1, ((lifePathNumber + 1) % 9) + 1],
-      personalYear: Math.floor(Math.random() * 9) + 1
+      personalYear: Math.floor(Math.random() * 9) + 1,
     },
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
+
+  if (!mockReports[email]) mockReports[email] = [];
+  mockReports[email].unshift(report);
 
   res.status(201).json({
     success: true,
     message: 'Report generated successfully',
-    data: report
+    data: report,
   });
 });
 
