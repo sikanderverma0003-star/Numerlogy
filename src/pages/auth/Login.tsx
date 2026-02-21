@@ -46,7 +46,7 @@ const Login = () => {
     }
   }, [location.state]);
 
-  const validateEmail = (email: string): boolean => {
+  const validateEmail = (email:string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
@@ -98,6 +98,9 @@ const Login = () => {
             ? "Server error. Please try again later."
             : "Login failed. Please try again.";
         }
+        if (response.status === 401) {
+          message += " Don't have an account? Create one below.";
+        }
         setErrors({ general: message });
         return;
       }
@@ -120,7 +123,7 @@ const Login = () => {
     } catch (error) {
       setErrors({
         general:
-          "Cannot reach the server. Start the backend with: npm run dev:server (and ensure MongoDB is running if required).",
+          "Cannot reach the server. In a terminal run: npm run start (starts app + backend, no MongoDB needed).",
       });
     } finally {
       setIsLoading(false);

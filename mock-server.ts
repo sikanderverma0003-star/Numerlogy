@@ -11,9 +11,11 @@ app.use(cors({
 
 app.use(express.json());
 
-// Mock user database
-const mockUsers: Record<string, { email: string; password: string; name: string }> = {};
+// Mock user database (id, email, password, name)
+const mockUsers: Record<string, { id: string; email: string; password: string; name: string }> = {};
 const mockReports: Record<string, any[]> = {};
+const mockTokenToEmail: Record<string, string> = {};
+let mockUserId = 1;
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -22,29 +24,38 @@ app.get('/api/health', (req, res) => {
 
 // Mock signup
 app.post('/api/auth/signup', (req, res) => {
-  const { email, password, name } = req.body;
-  
-  if (!email || !password) {
-    return res.status(400).json({ success: false, error: 'Email and password required' });
+  try {
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const password = body.password;
+    const name = typeof body.name === 'string' ? body.name.trim() : undefined;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password required' });
+    }
+
+    if (mockUsers[email]) {
+      return res.status(400).json({ success: false, error: 'Email already exists' });
+    }
+
+    const id = 'user-' + mockUserId++;
+    const userName = name || (email.includes('@') ? email.split('@')[0] : email);
+    mockUsers[email] = { id, email, password, name: userName };
+    mockReports[email] = [];
+
+    const token = 'mock-token-' + Date.now();
+    mockTokenToEmail[token] = email;
+    return res.status(201).json({
+      message: 'User created successfully',
+      data: {
+        token,
+        user: { _id: id, email, name: mockUsers[email].name, plan: 'free' },
+      },
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    return res.status(500).json({ success: false, error: 'Signup failed. Please try again.' });
   }
-
-  if (mockUsers[email]) {
-    return res.status(400).json({ success: false, error: 'Email already exists' });
-  }
-
-  const id = 'user-' + mockUserId++;
-  mockUsers[email] = { id, email, password, name: name || email.split('@')[0] };
-  mockReports[email] = [];
-
-  const token = 'mock-token-' + Date.now();
-  mockTokenToEmail[token] = email;
-  res.status(201).json({
-    message: 'User created successfully',
-    data: {
-      token,
-      user: { _id: id, email, name: mockUsers[email].name, plan: 'free' },
-    },
-  });
 });
 
 // Mock login
@@ -152,7 +163,7 @@ app.get('/api/dashboard/profile', (req, res) => {
   const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
   const email = token ? mockTokenToEmail[token] : null;
   const user = email ? mockUsers[email] : null;
-  if (!user) {
+  if (!user || !email) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   const reportCount = mockReports[email]?.length ?? 0;
@@ -175,7 +186,7 @@ app.put('/api/dashboard/profile', (req, res) => {
   const token = auth?.startsWith('Bearer ') ? auth.slice(7) : '';
   const email = token ? mockTokenToEmail[token] : null;
   const user = email ? mockUsers[email] : null;
-  if (!user) {
+  if (!user || !email) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   const { name } = req.body;

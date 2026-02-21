@@ -111,7 +111,7 @@ const Signup = () => {
     } catch (error) {
       setErrors({
         general:
-          "Cannot reach the server. Start the backend with: npm run dev:server (and ensure MongoDB is running if required).",
+          "Cannot reach the server. In a terminal run: npm run start (starts app + backend, no MongoDB needed).",
       });
     } finally {
       setIsLoading(false);
